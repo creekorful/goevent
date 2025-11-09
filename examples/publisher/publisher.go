@@ -20,7 +20,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer pub.Close()
+	defer func(pub goevent.Publisher) {
+		_ = pub.Close()
+	}(pub)
 
 	if err := pub.PublishEvent(&GreetingsEvent{Name: "John Doe"}); err != nil {
 		log.Fatal(err)
