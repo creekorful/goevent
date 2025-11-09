@@ -3,7 +3,8 @@ package goevent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/streadway/amqp"
+
+	"github.com/rabbitmq/amqp091-go"
 )
 
 // RawMessage is a raw message as viewed by the messaging system
@@ -25,12 +26,12 @@ type Publisher interface {
 }
 
 type publisher struct {
-	channel *amqp.Channel
+	channel *amqp091.Channel
 }
 
 // NewPublisher create a new Publisher instance
 func NewPublisher(amqpURI string) (Publisher, error) {
-	conn, err := amqp.Dial(amqpURI)
+	conn, err := amqp091.Dial(amqpURI)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +58,7 @@ func (p *publisher) Close() error {
 	return p.channel.Close()
 }
 
-func publishEvent(ch *amqp.Channel, event Event) error {
+func publishEvent(ch *amqp091.Channel, event Event) error {
 	evtBytes, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("error while encoding event: %s", err)
@@ -66,11 +67,11 @@ func publishEvent(ch *amqp.Channel, event Event) error {
 	return publishRaw(ch, event.Exchange(), &RawMessage{Body: evtBytes})
 }
 
-func publishRaw(ch *amqp.Channel, exchange string, raw *RawMessage) error {
-	return ch.Publish(exchange, "", false, false, amqp.Publishing{
+func publishRaw(ch *amqp091.Channel, exchange string, raw *RawMessage) error {
+	return ch.Publish(exchange, "", false, false, amqp091.Publishing{
 		ContentType:  "application/json",
 		Body:         raw.Body,
 		Headers:      raw.Headers,
-		DeliveryMode: amqp.Persistent,
+		DeliveryMode: amqp091.Persistent,
 	})
 }

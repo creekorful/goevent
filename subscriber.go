@@ -3,8 +3,9 @@ package goevent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/streadway/amqp"
 	"sync"
+
+	"github.com/rabbitmq/amqp091-go"
 )
 
 // Handler represent an event handler
@@ -26,14 +27,14 @@ type Subscriber interface {
 
 // Subscriber represent a subscriber
 type subscriber struct {
-	channel            *amqp.Channel
+	channel            *amqp091.Channel
 	subscriptions      map[string]struct{}
 	subscriptionsMutex sync.Mutex
 }
 
 // NewSubscriber create a new subscriber and connect it to given server
 func NewSubscriber(amqpURI string, prefetch int) (Subscriber, error) {
-	conn, err := amqp.Dial(amqpURI)
+	conn, err := amqp091.Dial(amqpURI)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +80,7 @@ func (s *subscriber) Read(msg *RawMessage, event Event) error {
 
 func (s *subscriber) Subscribe(exchange, queue, subscriptionId string, handler Handler) error {
 	// First declare the exchange
-	if err := s.channel.ExchangeDeclare(exchange, amqp.ExchangeFanout, true, false, false, false, nil); err != nil {
+	if err := s.channel.ExchangeDeclare(exchange, amqp091.ExchangeFanout, true, false, false, false, nil); err != nil {
 		return err
 	}
 
@@ -129,7 +130,7 @@ func (s *subscriber) Subscribe(exchange, queue, subscriptionId string, handler H
 
 func (s *subscriber) SubscribeAll(exchange, subscriptionId string, handler Handler) error {
 	// First declare the exchange
-	if err := s.channel.ExchangeDeclare(exchange, amqp.ExchangeFanout, true, false, false, false, nil); err != nil {
+	if err := s.channel.ExchangeDeclare(exchange, amqp091.ExchangeFanout, true, false, false, false, nil); err != nil {
 		return err
 	}
 

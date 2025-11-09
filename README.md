@@ -96,5 +96,5 @@ func greetingsHandler(sub goevent.Subscriber, msg *goevent.RawMessage) error {
 
 ## Who's using the library?
 
-- [darkspot-org/bathyscaphe](https://github.com/darkspot-org/bathyscaphe) : Fast, highly configurable, cloud native dark
+- [creekorful/bathyscaphe](https://github.com/creekorful/bathyscaphe) : Fast, highly configurable, cloud native dark
   web crawler.

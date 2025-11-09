@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/creekorful/goevent"
 	"log"
 	"os"
+
+	"github.com/creekorful/goevent"
 )
 
 type GreetingsEvent struct {

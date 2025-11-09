@@ -1,6 +1,6 @@
 package goevent
 
-// Event represent a event
+// Event represent an event
 type Event interface {
 	// Exchange returns the exchange where event should be push
 	Exchange() string

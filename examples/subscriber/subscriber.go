@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/creekorful/goevent"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/creekorful/goevent"
 )
 
 type GreetingsEvent struct {
