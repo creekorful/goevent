@@ -95,35 +95,9 @@ func (s *subscriber) Subscribe(exchange, queue, subscriptionId string, handler H
 		return err
 	}
 
-	// Validate and append the new subscription
-	s.subscriptionsMutex.Lock()
-	defer s.subscriptionsMutex.Unlock()
-
-	if _, exists := s.subscriptions[subscriptionId]; exists {
-		return fmt.Errorf("a subscription already exists with id %s", subscriptionId)
-	}
-
-	// Start consuming asynchronously
-	deliveries, err := s.channel.Consume(q.Name, subscriptionId, false, false, false, false, nil)
-	if err != nil {
+	if err := s.startConsuming(q.Name, subscriptionId, handler); err != nil {
 		return err
 	}
-
-	s.subscriptions[subscriptionId] = struct{}{}
-
-	go func() {
-		for delivery := range deliveries {
-			msg := &RawMessage{
-				Body:    delivery.Body,
-				Headers: delivery.Headers,
-			}
-
-			_ = handler(s, msg)
-
-			// Ack no matter what happen since we don't care about failing event (yet?)
-			_ = delivery.Ack(false)
-		}
-	}()
 
 	return nil
 }
@@ -145,7 +119,14 @@ func (s *subscriber) SubscribeAll(exchange, subscriptionId string, handler Handl
 		return err
 	}
 
-	// Validate and append the new subscription
+	if err := s.startConsuming(q.Name, subscriptionId, handler); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *subscriber) startConsuming(queueName, subscriptionId string, handler Handler) error {
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
 
@@ -154,7 +135,7 @@ func (s *subscriber) SubscribeAll(exchange, subscriptionId string, handler Handl
 	}
 
 	// Start consuming asynchronously
-	deliveries, err := s.channel.Consume(q.Name, subscriptionId, false, false, false, false, nil)
+	deliveries, err := s.channel.Consume(queueName, subscriptionId, false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
