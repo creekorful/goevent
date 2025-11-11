@@ -21,6 +21,9 @@ type Subscriber interface {
 	// Subscribe to named exchange with unique consuming guaranty
 	Subscribe(exchange, queue, subscriptionId string, handler Handler) error
 
+	// SubscribeDLQ subscribe to named exchange and add DLQ functionality
+	SubscribeDLQ(exchange, queue, subscriptionId string, handler Handler) error
+
 	// SubscribeAll subscribe to given exchange but ensure everyone on the exchange receive the messages
 	SubscribeAll(exchange, subscriptionId string, handler Handler) error
 }
@@ -95,7 +98,42 @@ func (s *subscriber) Subscribe(exchange, queue, subscriptionId string, handler H
 		return err
 	}
 
-	if err := s.startConsuming(q.Name, subscriptionId, handler); err != nil {
+	if err := s.startConsuming(q.Name, subscriptionId, handler, false); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *subscriber) SubscribeDLQ(exchange, queue, subscriptionId string, handler Handler) error {
+	// First declare the exchange
+	if err := s.channel.ExchangeDeclare(exchange, amqp091.ExchangeFanout, true, false, false, false, nil); err != nil {
+		return err
+	}
+
+	dlqName := queue + "DLQ"
+
+	// Declare the DLQ
+	_, err := s.channel.QueueDeclare(dlqName, true, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	// Then declare the queue
+	q, err := s.channel.QueueDeclare(queue, true, false, false, false, map[string]interface{}{
+		"x-dead-letter-exchange":    "",
+		"x-dead-letter-routing-key": dlqName,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Bind the queue to the exchange
+	if err := s.channel.QueueBind(q.Name, "", exchange, false, nil); err != nil {
+		return err
+	}
+
+	if err := s.startConsuming(q.Name, subscriptionId, handler, true); err != nil {
 		return err
 	}
 
@@ -119,14 +157,14 @@ func (s *subscriber) SubscribeAll(exchange, subscriptionId string, handler Handl
 		return err
 	}
 
-	if err := s.startConsuming(q.Name, subscriptionId, handler); err != nil {
+	if err := s.startConsuming(q.Name, subscriptionId, handler, false); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *subscriber) startConsuming(queueName, subscriptionId string, handler Handler) error {
+func (s *subscriber) startConsuming(queueName, subscriptionId string, handler Handler, dlq bool) error {
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
 
@@ -149,10 +187,12 @@ func (s *subscriber) startConsuming(queueName, subscriptionId string, handler Ha
 				Headers: delivery.Headers,
 			}
 
-			_ = handler(s, msg)
-
-			// Ack no matter what happen since we don't care about failing event (yet?)
-			_ = delivery.Ack(false)
+			// If an error happens and DLQ is configured reject the message
+			if err := handler(s, msg); err != nil && dlq {
+				_ = delivery.Reject(false)
+			} else {
+				_ = delivery.Ack(false)
+			}
 		}
 	}()
 
