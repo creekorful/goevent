@@ -3,6 +3,7 @@ package goevent
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/rabbitmq/amqp091-go"
@@ -187,8 +188,14 @@ func (s *subscriber) startConsuming(queueName, subscriptionId string, handler Ha
 				Headers: delivery.Headers,
 			}
 
+			err := handler(s, msg)
+
+			if err != nil {
+				log.Printf("error while handling delivery: %s", err)
+			}
+
 			// If an error happens and DLQ is configured reject the message
-			if err := handler(s, msg); err != nil && dlq {
+			if err != nil && dlq {
 				_ = delivery.Reject(false)
 			} else {
 				_ = delivery.Ack(false)
